@@ -18,12 +18,11 @@ CSV_FILE = 'iki_elli_pozlar.csv' # Yeni bir CSV adı verelim
 
 # Etiket isimleri (İki elli pozlara göre güncelle)
 ETIKETLER = {
-    '0': 'Bos',                # Hiçbir poz yok
-    '1': 'Sol_El_Yumruk',      # Sadece sol el yumruk
-    '2': 'Sag_El_Yumruk',      # Sadece sağ el yumruk
-    '3': 'Kalp_Isareti',       # İki el ile kalp
-    '4': 'Parmak_Dudakta',     # Tek elle yapılan eski poz
-    '5': 'Kalp' # Kalp pozu
+    '0': 'neutral',                # Hiçbir poz yok
+    '1': 'thinking',      # Sadece sol el yumruk
+    '2': 'finding',      # Sadece sağ el yumruk
+    '3': 'scared'       # İki el ile kalp
+
 }
 
 # --- Yüz kilit noktası index'leri (Bu kısım aynı) ---
