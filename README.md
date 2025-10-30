@@ -60,33 +60,6 @@ Kendi pozlarınızı eklemek için bu sırayı takip edin:
     2.  Yeni pozunuzu (`'selam_ver'` gibi) ve karşılığında göstereceği resim/ses dosyasının yolunu ekleyin.
     3.  `python tahmin_et.py` ile çalıştırıp test edin.
 
----
-
-## exe dosyasında çalıştırma:
-
-Bu bölüm, Python veya kütüphaneleri kurmadan, uygulamayı doğrudan çalıştırmak isteyenler içindir.
-
-**Kritik Kural: Dosya Konumları**
-`GestureApp.exe`'nin çalışması için, tüm yardımcı dosyaların (`.pkl` modeli, `images` klasörü vb.) `.exe` ile **aynı klasörde** olması **gereklidir**.
-
-**Klasör Yapınız Şöyle Görünmelidir:**
-```
-📁 GestureApp/  <-- (dist/GestureApp klasörünüz)
-│
-├──  GestureApp.exe        (Ana Uygulama)
-│
-├──  iki_elli_model.pkl  (Makine Öğrenimi Modeli)
-│
-├──  images/               (Resimlerin olduğu klasör)
-│   ├── neutral_monke.png
-│   ├── thinking_monke.png
-│   └── ... (diğer tüm resimler)
-│
-├──  sounds/               (Eğer kullanıyorsanız ses klasörü)
-│   └── ...
-│
-└── ... (Uygulamanın çalışması için gerekli diğer .dll dosyaları)
-```
 
 **Çalıştırma:**
 Yukarıdaki dosya yapısı tamsa, `GestureApp.exe`'ye çift tıklamanız yeterlidir. Kamera ve aksiyon penceresi açılacaktır.
