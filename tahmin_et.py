@@ -6,21 +6,24 @@ import joblib
 import numpy as np
 import warnings
 import pygame
-import tkinter as tk
-from tkinter import messagebox
-from collections import deque, Counter  # <<< OYLAMA İÇİN EKLENDİ
+import tkinter as tk  # <<< Hata Pop-up'ı için eklendi
+from tkinter import messagebox # <<< Hata Pop-up'ı için eklendi
 
-# --- Hata Pop-up Fonksiyonu (Aynı) ---
+import sklearn.neighbors
+import sklearn.ensemble
+
+# --- Hata Pop-up Fonksiyonu ---
 def show_error_popup(title, message):
     try:
         root = tk.Tk()
-        root.withdraw() 
+        root.withdraw() # Ana Tk penceresini gizle
         messagebox.showerror(title, message)
         root.destroy()
     except Exception as e:
-        print(f"POPUP HATA: {e}") 
+        print(f"POPUP HATA: {e}") # Popup bile hata verirse terminale yaz
+# --- Bitti ---
 
-# --- base_path (Aynı) ---
+# --- EXE için 'base_path'i bul ---
 if getattr(sys, 'frozen', False):
     base_path = os.path.dirname(sys.executable)
 else:
@@ -29,7 +32,7 @@ else:
     except NameError:
         base_path = os.getcwd()
 
-# --- resize_with_padding fonksiyonu (Aynı) ---
+# ... (resize_with_padding fonksiyonu buradaydı, o aynı kalıyor) ...
 def resize_with_padding(img, target_width, target_height, color=(0, 0, 0)):
     original_height, original_width = img.shape[:2]
     if original_height == 0 or original_width == 0:
@@ -56,8 +59,10 @@ def resize_with_padding(img, target_width, target_height, color=(0, 0, 0)):
     canvas[y_center:y_center + new_height, x_center:x_center + new_width] = resized_img
     return canvas
 
-# --- Pygame, Warnings, Aksiyonlar (Aynı) ---
+# --- Pygame mixer'ı başlat ---
 pygame.mixer.init()
+
+# sklearn uyarılarını gizle
 warnings.filterwarnings("ignore", category=UserWarning)
 
 AKSIYONLAR = {
@@ -106,30 +111,28 @@ for etiket, aksiyon in AKSIYONLAR.items():
             images[etiket] = resize_with_padding(original_image, AKSIYON_GENISLIK, AKSIYON_YUKSEKLIK)
     elif 'görüntü' in aksiyon and aksiyon['görüntü']: print(f"Uyarı: '{etiket}' görüntü dosyası bulunamadı.")
 
-# --- PyInstaller için Sahte Importlar (Aynı) ---
-import sklearn.neighbors
-import sklearn.ensemble
-
-# --- Modelleri Başlat (Aynı) ---
+# --- MediaPipe Modellerini Başlat ---
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-# --- Modeli Yükle (Aynı) ---
+# --- Eğitilmiş Modeli Yükle ---
 MODEL_FILE = os.path.join(base_path, 'iki_elli_model.pkl')
 if not os.path.exists(MODEL_FILE):
-    show_error_popup("Kritik Hata", f"Model dosyası bulunamadı!\n\nBeklenen yol: {MODEL_FILE}")
+    # !!! DEĞİŞİKLİK: input() yerine pop-up göster !!!
+    show_error_popup("Kritik Hata", f"Model dosyası bulunamadı!\n\nBeklenen yol: {MODEL_FILE}\n\nLütfen 'iki_elli_model.pkl' dosyasının .exe ile aynı klasörde olduğundan emin olun.")
     exit()
 model = joblib.load(MODEL_FILE)
 
-# --- Landmark Indexleri (Aynı) ---
+# Yüz kilit noktası index'leri
 face_landmark_indices = [ 1, 61, 291, 0, 39, 269, 13, 14, 17 ]
 
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
-    show_error_popup("Kritik Hata", "Kamera (0) açılamadı.")
+    # !!! DEĞİŞİKLİK: input() yerine pop-up göster !!!
+    show_error_popup("Kritik Hata", "Kamera (0) açılamadı.\n\nLütfen kameranızın başka bir uygulama tarafından kullanılmadığından emin olun ve programı yeniden başlatın.")
     exit()
 
 # ------------------------------------------------------------------
@@ -277,7 +280,6 @@ while cap.isOpened():
     if cv2.waitKey(5) & 0xFF == ord('q'):
         break
 
-# Temizlik
 hands.close()
 face_mesh.close()
 cap.release()
