@@ -59,18 +59,3 @@ Kendi pozlarınızı eklemek için bu sırayı takip edin:
     1.  `tahmin_et.py` dosyasını açıp `AKSIYONLAR` sözlüğüne gidin.
     2.  Yeni pozunuzu (`'selam_ver'` gibi) ve karşılığında göstereceği resim/ses dosyasının yolunu ekleyin.
     3.  `python tahmin_et.py` ile çalıştırıp test edin.
-
-
-**Çalıştırma:**
-Yukarıdaki dosya yapısı tamsa, `GestureApp.exe`'ye çift tıklamanız yeterlidir. Kamera ve aksiyon penceresi açılacaktır.
-
-**Sık Karşılaşılan Hatalar:**
-
-* **"Kritik Hata: Model dosyası bulunamadı!"**
-    * **Çözüm:** `iki_elli_model.pkl` dosyası `.exe`'nin yanında değil. Kopyalayıp `.exe`'nin yanına yapıştırın.
-
-* **"Kritik Hata: Kamera (0) açılamadı!"**
-    * **Çözüm:** Kameranız başka bir program (Zoom, Discord vb.) tarafından kullanılıyor. O programları kapatıp `.exe`'yi yeniden başlatın.
-
-* **Resimler görünmüyor (Aksiyon penceresi siyah)**
-    * **Çözüm:** `images` klasörü `.exe`'nin yanında değil demektir. Klasörü kopyalayıp `.exe`'nin yanına yapıştırın.
