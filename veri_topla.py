@@ -4,49 +4,39 @@ import csv
 import os
 import numpy as np
 
-# MediaPipe el ve yüz modelini başlat
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
-# !!! DEĞİŞİKLİK: max_num_hands=2 !!!
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-# Kaydedilecek CSV dosyası
-CSV_FILE = 'iki_elli_pozlar.csv' # Yeni bir CSV adı verelim
+CSV_FILE = 'iki_elli_pozlar.csv'
 
-# Etiket isimleri (İki elli pozlara göre güncelle)
 ETIKETLER = {
-    '0': 'neutral',                # Hiçbir poz yok
-    '1': 'thinking',      # Sadece sol el yumruk
-    '2': 'finding',      # Sadece sağ el yumruk
-    '3': 'scared' ,      # İki el ile kalp
-    '4': 'sad' , 
-    '5': 'surprised' 
+    '0': 'neutral',
+    '1': 'thinking',
+    '2': 'finding',
+    '3': 'scared' ,
+    '4': 'sad' ,
+    '5': 'surprised'
 }
 
-# --- Yüz kilit noktası index'leri (Bu kısım aynı) ---
 face_landmark_indices = [
-    1,   # Burun ucu (referans noktası)
+    1,
     61, 291, 0, 39, 269, 13, 14, 17
 ]
 
-# --- CSV Başlıklarını Güncelle ---
 features = []
-# Sol El kilit noktaları (21 adet, her biri için x, y)
 for i in range(21):
     features.extend([f'sol_el_x{i}', f'sol_el_y{i}'])
-# Sağ El kilit noktaları (21 adet, her biri için x, y)
 for i in range(21):
     features.extend([f'sag_el_x{i}', f'sag_el_y{i}'])
-# Yüz kilit noktaları
 for i in face_landmark_indices:
     features.extend([f'face_x{i}', f'face_y{i}'])
 
-features.append('etiket') # Son sütun etiket olacak
+features.append('etiket')
 
-# Dosya yoksa başlık satırını yaz
 if not os.path.exists(CSV_FILE):
     with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as f:
         csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -56,7 +46,7 @@ cap = cv2.VideoCapture(0)
 print("Veri toplama programı (İki El) başlatıldı.")
 print(f"Veri '{CSV_FILE}' dosyasına kaydedilecek.")
 for key, value in ETIKETLER.items():
-    print(f"   '{key}' tuşu -> {value}")
+    print(f"    '{key}' tuşu -> {value}")
 print("Çıkmak için 'q' tuşuna basın.")
 
 while cap.isOpened():
@@ -77,7 +67,6 @@ while cap.isOpened():
     if key == ord('q'):
         break
 
-    # Çizim (İsteğe bağlı)
     if hand_results.multi_hand_landmarks:
         for hand_landmarks in hand_results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -91,12 +80,10 @@ while cap.isOpened():
                     cx, cy = int(point.x * w), int(point.y * h)
                     cv2.circle(image, (cx, cy), 2, (0, 255, 0), -1)
 
-    # --- Veri Kaydetme ---
     if chr(key) in ETIKETLER:
         etiket_adi = ETIKETLER[chr(key)]
         print(f"Kaydediliyor... {etiket_adi}")
         
-        # --- Normalizasyon (Referans: Burun Ucu) ---
         nose_tip_x, nose_tip_y = None, None
         if face_results.multi_face_landmarks:
             nose_tip = face_results.multi_face_landmarks[0].landmark[1]
@@ -105,19 +92,15 @@ while cap.isOpened():
         
         if nose_tip_x is None:
             print("Uyarı: Yüz tespit edilemedi, veri kaydedilemiyor.")
-            continue 
+            continue
         
-        # --- !!! İKİ EL İŞLEME LOGIĞI !!! ---
-        # Önce boş listeler (42 adet '0.0') oluştur
         sol_el_verisi = [0.0] * (21 * 2)
         sag_el_verisi = [0.0] * (21 * 2)
         
         if hand_results.multi_hand_landmarks:
-            # handedness (hangi el olduğu) bilgisiyle birlikte döngüye gir
             for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
-                el_etiketi = handedness.classification[0].label # 'Left' veya 'Right'
+                el_etiketi = handedness.classification[0].label
                 
-                # O anki elin normalize edilmiş verisini geçici bir listede topla
                 temp_hand_list = []
                 for landmark in hand_landmarks.landmark:
                     normalized_x = landmark.x - nose_tip_x
@@ -129,7 +112,6 @@ while cap.isOpened():
                 elif el_etiketi == 'Right':
                     sag_el_verisi = temp_hand_list
 
-        # --- Yüz Verisi İşleme (Aynı) ---
         yuz_verisi = [0.0] * (len(face_landmark_indices) * 2)
         if face_results.multi_face_landmarks:
             temp_face_list = []
@@ -140,15 +122,12 @@ while cap.isOpened():
                 temp_face_list.extend([normalized_x, normalized_y])
             yuz_verisi = temp_face_list
         
-        # --- Tüm Veriyi Birleştir ---
-        # Sıra önemli: Önce SOL, sonra SAĞ, sonra YÜZ
         landmarks_list = []
         landmarks_list.extend(sol_el_verisi)
         landmarks_list.extend(sag_el_verisi)
         landmarks_list.extend(yuz_verisi)
         landmarks_list.append(etiket_adi)
         
-        # CSV'ye yaz
         with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as f:
             csv_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(landmarks_list)
