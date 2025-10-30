@@ -1,89 +1,104 @@
+# --- Kodun En Başı ---
+import sys
+import os
 import cv2
 import mediapipe as mp
 import joblib
 import numpy as np
-import os
 import warnings
-import pygame # <<< SES İÇİN EKLENDİ
+import pygame
+import tkinter as tk  # <<< Hata Pop-up'ı için eklendi
+from tkinter import messagebox # <<< Hata Pop-up'ı için eklendi
 
-# ... (tüm import satırlarından sonra) ...
+import sklearn.neighbors
+import sklearn.ensemble
 
+# --- Hata Pop-up Fonksiyonu ---
+def show_error_popup(title, message):
+    """
+    Kullanıcıya grafiksel bir hata mesajı gösterir.
+    .exe modunda input() yerine bu kullanılır.
+    """
+    try:
+        root = tk.Tk()
+        root.withdraw() # Ana Tk penceresini gizle
+        messagebox.showerror(title, message)
+        root.destroy()
+    except Exception as e:
+        print(f"POPUP HATA: {e}") # Popup bile hata verirse terminale yaz
+# --- Bitti ---
+
+# --- EXE için 'base_path'i bul ---
+if getattr(sys, 'frozen', False):
+    base_path = os.path.dirname(sys.executable)
+else:
+    try:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base_path = os.getcwd()
+# --- bitti ---
+
+# ... (resize_with_padding fonksiyonu buradaydı, o aynı kalıyor) ...
 def resize_with_padding(img, target_width, target_height, color=(0, 0, 0)):
-    """
-    Bir görüntüyü en-boy oranını koruyarak hedeflenen boyuta sığdırır
-    ve boşlukları siyah renkle (veya 'color' ile) doldurur.
-    """
     original_height, original_width = img.shape[:2]
+    if original_height == 0 or original_width == 0:
+        return np.full((target_height, target_width, 3), color, dtype=np.uint8)
     target_ratio = target_width / target_height
     original_ratio = original_width / original_height
-
     if original_ratio > target_ratio:
-        # Görüntü hedeften daha geniş, genişliğe sığdır
         new_width = target_width
         new_height = int(new_width / original_ratio)
     else:
-        # Görüntü hedeften daha uzun (veya aynı oranda), yüksekliğe sığdır
         new_height = target_height
         new_width = int(new_height * original_ratio)
-
-    # Görüntüyü yeniden boyutlandır
     try:
-        resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        if new_width > 0 and new_height > 0:
+            resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        else:
+             return np.full((target_height, target_width, 3), color, dtype=np.uint8)
     except Exception as e:
         print(f"HATA: cv2.resize başarısız oldu: {e}")
-        # Hata durumunda boş bir resim döndür
         return np.full((target_height, target_width, 3), color, dtype=np.uint8)
-
-
-    # Siyah bir tuval oluştur
     canvas = np.full((target_height, target_width, 3), color, dtype=np.uint8)
-
-    # Yeniden boyutlandırılmış görüntüyü tuvalin ortasına yapıştır
     y_center = (target_height - new_height) // 2
     x_center = (target_width - new_width) // 2
-
     canvas[y_center:y_center + new_height, x_center:x_center + new_width] = resized_img
-
     return canvas
 
-# --- Pygame mixer'ı başlat (SES İÇİN) ---
+# --- Pygame mixer'ı başlat ---
 pygame.mixer.init()
-# ... (kodun geri kalanı buradan devam eder) ...
 
 # sklearn uyarılarını gizle
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# --- Pygame mixer'ı başlat (SES İÇİN) ---
-pygame.mixer.init()
-
-# ------------------------------------------------------------------
-# !!! EN ÖNEMLİ KISIM: BURAYI KENDİNE GÖRE DÜZENLE !!!
-# ------------------------------------------------------------------
-# '1_veri_topla.py' dosyasında kullandığın etiketlerle
-# çalınacak ses ve gösterilecek resim dosyalarını eşleştir.
-# Dosyaların bu script ile aynı klasörde (C:\gesture_ml) olduğundan emin ol.
+# --- AKSIYONLAR Sözlüğü (base_path'li hali) ---
 AKSIYONLAR = {
     'neutral': {
-        'ses': None, # Boş poz için ses/resim istemeyebiliriz
-        'görüntü': 'images/neutral_monke.webp'
+        'ses': None,
+        'görüntü': os.path.join(base_path, 'images', 'neutral_monke.webp')
     },
     'thinking': {
-        'ses': None,      # Kendi ses dosyanın adı
-        'görüntü': 'images/thinking_monke.webp' # Kendi resim dosyanın adı
+        'ses': None,
+        'görüntü': os.path.join(base_path, 'images', 'thinking_monke.webp')
     },
     'finding': {
         'ses': None,
-        'görüntü': 'images/finding_monke.jpeg'
+        'görüntü': os.path.join(base_path, 'images', 'finding_monke.jpeg')
     },
     'scared': {
         'ses': None,
-        'görüntü': 'images/scared_monke.webp'
+        'görüntü': os.path.join(base_path, 'images', 'scared_monke.webp')
+    },
+    'surprised': {
+        'ses': None,
+        'görüntü': os.path.join(base_path, 'images', 'holy_what_face.jpeg')
+    },
+    'sad': {
+        'ses': None,
+        'görüntü': os.path.join(base_path, 'images', 'sad_face.jpg')
     }
-    # Buraya '1_veri_topla.py' dosyasındaki TÜM etiketlerini eklemelisin
 }
-# ------------------------------------------------------------------
-
-# --- Ses dosyalarını yükle (Hata kontrolü ile) ---
+# --- (Ses ve Görüntü Yükleme Bloğu - Aynı) ---
 sounds = {}
 for etiket, aksiyon in AKSIYONLAR.items():
     if 'ses' in aksiyon and aksiyon['ses'] and os.path.exists(aksiyon['ses']):
@@ -94,53 +109,50 @@ for etiket, aksiyon in AKSIYONLAR.items():
     elif 'ses' in aksiyon and aksiyon['ses']:
         print(f"Uyarı: '{etiket}' için ses dosyası bulunamadı: {aksiyon['ses']}")
 
-# --- Görüntü dosyalarını yükle (Hata kontrolü ile) ---
-# --- Görüntü dosyalarını yükle (Hata kontrolü ile) ---
-
-# !!! YENİ: Tüm aksiyon pencereleri için standart boyut belirle
 AKSIYON_GENISLIK = 800
 AKSIYON_YUKSEKLIK = 600
-
 images = {}
 for etiket, aksiyon in AKSIYONLAR.items():
     if 'görüntü' in aksiyon and aksiyon['görüntü'] and os.path.exists(aksiyon['görüntü']):
-        # !!! DEĞİŞİKLİK: Resmi oku
         original_image = cv2.imread(aksiyon['görüntü'])
-        
-        # !!! DEĞİŞİKLİK: Resmi standart boyuta getir ve kaydet
-        images[etiket] = resize_with_padding(original_image, AKSIYON_GENISLIK, AKSIYON_YUKSEKLIK)
-        
+        if original_image is None:
+            print(f"HATA: '{aksiyon['görüntü']}' dosyası okunamadı.")
+            images[etiket] = np.full((AKSIYON_YUKSEKLIK, AKSIYON_GENISLIK, 3), (0,0,0), dtype=np.uint8)
+        else:
+            images[etiket] = resize_with_padding(original_image, AKSIYON_GENISLIK, AKSIYON_YUKSEKLIK)
     elif 'görüntü' in aksiyon and aksiyon['görüntü']:
         print(f"Uyarı: '{etiket}' için görüntü dosyası bulunamadı: {aksiyon['görüntü']}")
 
-
-# --- MediaPipe Modellerini Başlat (İki El) ---
+# --- MediaPipe Modellerini Başlat ---
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
-
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 # --- Eğitilmiş Modeli Yükle ---
-MODEL_FILE = 'iki_elli_model.pkl' # İki elli modelin adı
+MODEL_FILE = os.path.join(base_path, 'iki_elli_model.pkl')
 if not os.path.exists(MODEL_FILE):
-    print(f"HATA: '{MODEL_FILE}' modeli bulunamadı.")
+    # !!! DEĞİŞİKLİK: input() yerine pop-up göster !!!
+    show_error_popup("Kritik Hata", f"Model dosyası bulunamadı!\n\nBeklenen yol: {MODEL_FILE}\n\nLütfen 'iki_elli_model.pkl' dosyasının .exe ile aynı klasörde olduğundan emin olun.")
     exit()
 
 model = joblib.load(MODEL_FILE)
 
-# Yüz kilit noktası index'leri (1_veri_topla.py ile aynı olmalı)
-face_landmark_indices = [
-    1,   # Burun ucu (referans noktası)
-    61, 291, 0, 39, 269, 13, 14, 17
-]
+# Yüz kilit noktası index'leri
+face_landmark_indices = [ 1, 61, 291, 0, 39, 269, 13, 14, 17 ]
 
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    # !!! DEĞİŞİKLİK: input() yerine pop-up göster !!!
+    show_error_popup("Kritik Hata", "Kamera (0) açılamadı.\n\nLütfen kameranızın başka bir uygulama tarafından kullanılmadığından emin olun ve programı yeniden başlatın.")
+    exit()
+    
 mevcut_hareket = None
 hareket_degisti = False
 print("Tahmin programı (Aksiyonlu Mod) başlatıldı. Çıkış için 'q' tuşuna basın.")
 
+# --- ANA DÖNGÜ (DEĞİŞİKLİK YOK) ---
 while cap.isOpened():
     success, image = cap.read()
     if not success:
@@ -148,16 +160,13 @@ while cap.isOpened():
 
     image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
     image.flags.writeable = False
-    
     hand_results = hands.process(image)
     face_results = face_mesh.process(image)
-    
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     
     tahmin_edilen_hareket = "" 
 
-    # --- Veri Çıkarma ve Normalizasyon (1_veri_topla.py ile BİREBİR AYNI) ---
     nose_tip_x, nose_tip_y = None, None
     if face_results.multi_face_landmarks:
         nose_tip = face_results.multi_face_landmarks[0].landmark[1] 
@@ -165,8 +174,7 @@ while cap.isOpened():
         nose_tip_y = nose_tip.y
     
     if nose_tip_x is None:
-        cv2.putText(image, 'Yuz tespit edilemedi', (10, 50), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        cv2.putText(image, 'Yuz tespit edilemedi', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
         cv2.imshow('Gercek Zamanli Tahmin (cikis icin q)', image)
         if cv2.waitKey(5) & 0xFF == ord('q'):
             break
@@ -181,7 +189,6 @@ while cap.isOpened():
             temp_hand_list = []
             for landmark in hand_landmarks.landmark:
                 temp_hand_list.extend([landmark.x - nose_tip_x, landmark.y - nose_tip_y])
-            
             if el_etiketi == 'Left':
                 sol_el_verisi = temp_hand_list
             elif el_etiketi == 'Right':
@@ -202,56 +209,40 @@ while cap.isOpened():
 
     data_row = np.array(landmarks_list).reshape(1, -1)
     
-    # --- Benzerlik Eşiği ile Tahmin ---
     BENZERLIK_ESIGI = 0.6 
     probabilities = model.predict_proba(data_row)[0]
     max_prob = np.max(probabilities)
+    tahmin_index = np.argmax(probabilities)
+    tahmin_etiketi_en_yakin = model.classes_[tahmin_index]
     
     if max_prob >= BENZERLIK_ESIGI:
-        tahmin_index = np.argmax(probabilities)
-        tahmin_edilen_hareket = model.classes_[tahmin_index]
+        tahmin_edilen_hareket = tahmin_etiketi_en_yakin
     else:
-        # Eğer 'Bos' diye bir sınıf öğrettiysen, "Belirsiz" yerine onu kullanmak daha iyi olabilir
-        tahmin_edilen_hareket = "Bos" # Veya "Belirsiz"
+        tahmin_edilen_hareket = "neutral" 
 
-    # Tahmini ekrana yaz
-    cv2.putText(image, f'Tahmin: {tahmin_edilen_hareket}', (10, 50), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+    cv2.putText(image, f'Tahmin: {tahmin_edilen_hareket}', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
     
-    # --- AKSİYON TETİKLEME (GERÇEK) ---
-    # Sadece hareket değiştiği anda aksiyonu tetikle
     if tahmin_edilen_hareket and tahmin_edilen_hareket != mevcut_hareket:
         mevcut_hareket = tahmin_edilen_hareket
         hareket_degisti = True
-        print(f"Yeni hareket tespit edildi: {mevcut_hareket}") # Terminale bilgi ver
+        print(f"Yeni hareket tespit edildi: {mevcut_hareket}") 
     elif not tahmin_edilen_hareket:
         mevcut_hareket = None
         hareket_degisti = False
         
     if hareket_degisti:
-        # Ses çal
         if mevcut_hareket in sounds:
-            pygame.mixer.stop() # Önceki sesi durdur
+            pygame.mixer.stop()
             sounds[mevcut_hareket].play()
-            
-        # Görüntü göster
         if mevcut_hareket in images:
-            # Görüntüyü 'Aksiyon' adlı yeni bir pencerede göster
             cv2.imshow('Aksiyon', images[mevcut_hareket])
         else:
-            # Eğer o hareket için resim yoksa ('Bos' pozu gibi), 'Aksiyon' penceresini kapat
-            # Pencere hiç açılmadıysa getWindowProperty hata verir, try/except kullanalım.
             try:
-                # 'Aksiyon' penceresini kapatmayı dene
                 cv2.destroyWindow('Aksiyon')
             except cv2.error:
-                # Eğer pencere zaten yoksa (veya hiç açılmadıysa) hata verir,
-                # bu hatayı görmezden gel ve devam et.
                 pass
+        hareket_degisti = False
 
-        hareket_degisti = False # Eylemi yaptık, tekrar bekle
-
-    # --- Çizim (İsteğe bağlı, en sonda olması daha iyi) ---
     if hand_results.multi_hand_landmarks:
         for hand_landmarks in hand_results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -275,7 +266,4 @@ hands.close()
 face_mesh.close()
 cap.release()
 cv2.destroyAllWindows()
-pygame.mixer.quit() # Pygame'i kapat
-
-
-
+pygame.mixer.quit()

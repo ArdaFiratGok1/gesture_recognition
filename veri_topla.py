@@ -21,8 +21,9 @@ ETIKETLER = {
     '0': 'neutral',                # Hiçbir poz yok
     '1': 'thinking',      # Sadece sol el yumruk
     '2': 'finding',      # Sadece sağ el yumruk
-    '3': 'scared'       # İki el ile kalp
-
+    '3': 'scared' ,      # İki el ile kalp
+    '4': 'sad' , 
+    '5': 'surprised' 
 }
 
 # --- Yüz kilit noktası index'leri (Bu kısım aynı) ---
