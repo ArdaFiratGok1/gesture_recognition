@@ -1,3 +1,5 @@
+# GestureApp: Gerçek Zamanlı Hareket Tanıma
+
 ## Kod üzerinden çalıştırma:
 
 Bu bölüm, projeyi kaynak kodundan çalıştırmak, değiştirmek veya kendi pozlarınızı eğitmek istiyorsanız gereklidir.
